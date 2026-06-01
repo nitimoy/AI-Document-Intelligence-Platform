@@ -6,9 +6,9 @@ from typing import Any
 
 import httplib2
 from google.oauth2 import service_account
+from google_auth_httplib2 import AuthorizedHttp
 from googleapiclient.discovery import Resource, build
 from googleapiclient.http import MediaIoBaseDownload
-from google_auth_httplib2 import AuthorizedHttp
 from tenacity import (
     retry,
     retry_if_exception_type,
@@ -70,7 +70,9 @@ class DriveService:
             )
             authorized_http = AuthorizedHttp(
                 credentials,
-                http=httplib2.Http(timeout=self._settings.drive_download_timeout_seconds),
+                http=httplib2.Http(
+                    timeout=self._settings.drive_download_timeout_seconds
+                ),
             )
             self._service = build(
                 "drive",
@@ -186,7 +188,9 @@ class DriveService:
                 file_metadata.mime_type = DOCX_MIME_TYPE
             file_metadata.download_path = str(destination_path)
             self._logger.info(
-                "Reused existing file %s from %s", file_metadata.file_name, destination_path
+                "Reused existing file %s from %s",
+                file_metadata.file_name,
+                destination_path,
             )
             return file_metadata
 
