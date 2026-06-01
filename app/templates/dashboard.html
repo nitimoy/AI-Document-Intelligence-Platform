@@ -1,0 +1,749 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard | AI Document Intelligence Platform</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+      crossorigin="anonymous"
+    />
+    <link rel="stylesheet" href="/static/css/dashboard.css" />
+  </head>
+  <body class="dashboard-shell">
+    <div class="container py-4 py-lg-5">
+      <section class="hero-head p-4 p-lg-5 mb-4">
+        <div class="d-flex flex-column flex-md-row justify-content-between gap-3">
+          <div>
+            <h1 class="mb-2">Summary Dashboard</h1>
+            <p class="mb-0 text-white-50">
+              Search, filter, and explore generated summaries for {{ application_name }}.
+            </p>
+          </div>
+          <div class="align-self-md-center action-btn-group action-btn-group-hero">
+            <a class="btn btn-light btn-sm" href="/api/v1/summaries">View Report Data</a>
+            <a class="btn btn-outline-light btn-sm" href="/api/v1/reports/csv">Generate CSV</a>
+            <a class="btn btn-outline-light btn-sm" href="/api/v1/reports/pdf">Generate PDF</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="row g-3 mb-4">
+        <div class="col-6 col-xl-3">
+          <article class="metric-card p-3 h-100">
+            <p class="metric-label mb-1">Total Documents</p>
+            <p class="metric-value mb-0">{{ metrics.total_documents }}</p>
+          </article>
+        </div>
+        <div class="col-6 col-xl-3">
+          <article class="metric-card p-3 h-100">
+            <p class="metric-label mb-1">Total Summaries</p>
+            <p class="metric-value mb-0">{{ metrics.total_summaries }}</p>
+          </article>
+        </div>
+        <div class="col-6 col-xl-3">
+          <article class="metric-card p-3 h-100">
+            <p class="metric-label mb-1">Cached Summaries</p>
+            <p class="metric-value mb-0">{{ metrics.cached_summaries }}</p>
+          </article>
+        </div>
+        <div class="col-6 col-xl-3">
+          <article class="metric-card p-3 h-100">
+            <p class="metric-label mb-1">Avg Processing Time</p>
+            <p class="metric-value mb-0">{{ metrics.average_processing_time }}s</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="row g-3 mb-4">
+        <div class="col-md-6">
+          <article class="metric-card p-3 h-100">
+            <p class="metric-label mb-1">Cache Files</p>
+            <p class="metric-value mb-0">{{ metrics.cache_files }}</p>
+          </article>
+        </div>
+        <div class="col-md-6">
+          <article class="metric-card p-3 h-100">
+            <p class="metric-label mb-1">Cache Hit Percentage</p>
+            <p class="metric-value mb-0">{{ metrics.cache_hit_percentage }}</p>
+          </article>
+        </div>
+      </section>
+
+      <!-- Pipeline Control Panel -->
+      <section class="pipeline-card p-3 p-lg-4 mb-4">
+        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-3">
+          <div>
+            <h2 class="pipeline-title mb-1">Run Pipeline</h2>
+            <p class="text-muted mb-0" style="font-size:.875rem">
+              Download documents from Drive → Parse → Summarize with GPT-4o
+            </p>
+          </div>
+          <div class="d-flex gap-2 flex-wrap">
+            <button class="btn btn-pipeline" id="btn-download" onclick="runStep('download')">
+              <span class="step-icon">📥</span> Download
+            </button>
+            <button class="btn btn-pipeline" id="btn-parse" onclick="runStep('parse')">
+              <span class="step-icon">📄</span> Parse
+            </button>
+            <button class="btn btn-pipeline" id="btn-load-files" onclick="loadDriveFiles()">
+              <span class="step-icon">📂</span> Load Files
+            </button>
+            <button class="btn btn-pipeline btn-pipeline-primary" id="btn-summarize-selected" onclick="runSummarizeSelected()">
+              <span class="step-icon">✨</span> Summarize Selected
+            </button>
+            <button class="btn btn-pipeline btn-pipeline-primary" id="btn-summarize" onclick="runSummarizeAll()">
+              <span class="step-icon">✨</span> Summarize All
+            </button>
+            <button class="btn btn-pipeline btn-pipeline-success" id="btn-run-all" onclick="runAll()">
+              ▶ Run All
+            </button>
+            <button class="btn btn-pipeline" id="btn-clear-cache" onclick="clearResults()">
+              🧹 Clear Previous Results
+            </button>
+          </div>
+        </div>
+        <div id="file-selector" class="file-selector d-none mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <strong>Select documents to summarize</strong>
+            <button class="btn btn-sm btn-outline-secondary" type="button" onclick="toggleSelectAll(true)">Select All</button>
+          </div>
+          <div id="file-checkboxes" class="file-checkboxes"></div>
+        </div>
+        <div id="operation-status" class="alert d-none" role="alert">
+          <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
+            <div>
+              <div id="operation-status-title" class="fw-semibold"></div>
+              <div id="operation-status-message" class="small"></div>
+              <div id="operation-status-next" class="small mb-0"></div>
+            </div>
+            <button
+              id="operation-refresh-btn"
+              class="btn btn-sm btn-outline-dark d-none"
+              type="button"
+              onclick="refreshDashboardNow()"
+            >
+              Refresh Dashboard
+            </button>
+          </div>
+        </div>
+        <div id="pipeline-log" class="pipeline-log d-none">
+          <div id="pipeline-log-inner"></div>
+        </div>
+      </section>
+
+      <section class="toolbar-card p-3 p-lg-4 mb-4">
+        <form class="row g-3" method="get" action="/dashboard">
+          <div class="col-lg-8">
+            <label class="form-label" for="query">Search (file name or summary content)</label>
+            <input
+              class="form-control"
+              id="query"
+              name="q"
+              placeholder="Search summaries"
+              type="text"
+              value="{{ query }}"
+            />
+          </div>
+          <div class="col-lg-3">
+            <label class="form-label" for="file_type">File Type Filter</label>
+            <select class="form-select" id="file_type" name="file_type">
+              <option value="ALL" {% if file_type == 'ALL' %}selected{% endif %}>All</option>
+              <option value="PDF" {% if file_type == 'PDF' %}selected{% endif %}>PDF</option>
+              <option value="DOCX" {% if file_type == 'DOCX' %}selected{% endif %}>DOCX</option>
+              <option value="TXT" {% if file_type == 'TXT' %}selected{% endif %}>TXT</option>
+            </select>
+          </div>
+          <div class="col-lg-1 d-flex align-items-end">
+            <button class="btn btn-accent w-100" type="submit">Go</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="table-card p-3 p-lg-4">
+        <div class="table-responsive">
+          <table class="table align-middle mb-0">
+            <thead>
+              <tr>
+                <th>File Name</th>
+                <th>File Type</th>
+                <th>Summary Preview</th>
+                <th>Chunk Count</th>
+                <th>Processing Time</th>
+                <th>Created Date</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if rows %}
+                {% for row in rows %}
+                  <tr>
+                    <td>{{ row.file_name }}</td>
+                    <td><span class="badge badge-type">{{ row.file_type }}</span></td>
+                    <td class="summary-preview">{{ row.summary_preview }}</td>
+                    <td>{{ row.chunk_count }}</td>
+                    <td>{{ row.processing_time_seconds }}s</td>
+                    <td>{{ row.created_at }}</td>
+                    <td>
+                      <button
+                        class="btn btn-sm btn-outline-secondary"
+                        type="button"
+                        onclick="openSummaryModal('{{ row.document_hash }}')"
+                      >
+                        View
+                      </button>
+                    </td>
+                  </tr>
+                {% endfor %}
+              {% else %}
+                <tr>
+                  <td class="text-center text-muted py-4" colspan="7">No summaries available for current filters.</td>
+                </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="table-card p-3 p-lg-4 mt-4">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">
+          <h2 class="pipeline-title mb-0">Report Download History</h2>
+          <div class="action-btn-group action-btn-group-inline">
+            <a class="btn btn-sm btn-accent" href="/api/v1/reports/csv">Generate CSV</a>
+            <a class="btn btn-sm btn-outline-secondary" href="/api/v1/reports/pdf">Generate PDF</a>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Report ID</th>
+                <th>Format</th>
+                <th>Created Date</th>
+                <th>Document Count</th>
+                <th>Download</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if reports %}
+                {% for report in reports %}
+                  <tr>
+                    <td class="text-break">{{ report.report_id }}</td>
+                    <td><span class="badge badge-type">{{ report.format | upper }}</span></td>
+                    <td>{{ report.created_at }}</td>
+                    <td>{{ report.document_count }}</td>
+                    <td>
+                      <a class="btn btn-sm btn-outline-secondary" href="/api/v1/reports/{{ report.report_id }}/download">
+                        Download
+                      </a>
+                    </td>
+                  </tr>
+                {% endfor %}
+              {% else %}
+                <tr>
+                  <td class="text-center text-muted py-4" colspan="5">No reports generated yet.</td>
+                </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <div class="modal fade" id="summaryDetailModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="summaryModalTitle">Summary Detail</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <h6 class="mb-2">Summary</h6>
+              <div id="summaryModalBody" class="summary-body"></div>
+            </div>
+            <hr />
+            <h6 class="mb-2">Document Metadata</h6>
+            <div class="row g-2" id="summaryModalMeta"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      const SUMMARY_ROWS = {{ rows | tojson }};
+      const SUMMARY_BY_HASH = Object.fromEntries(
+        SUMMARY_ROWS.map((row) => [row.document_hash, row])
+      );
+      const OP_STATUS_KEY = "dashboard-last-operation";
+
+      const NEXT_STEPS = {
+        download: "Next: click Parse to extract text.",
+        parse: "Next: click Summarize All or Summarize Selected.",
+        summarize:
+          "Next: click Refresh Dashboard to see updated summaries and metrics.",
+        summarize_selected:
+          "Next: click Refresh Dashboard to see updated summaries and metrics.",
+        clear: "Next: click Load Files, then run your pipeline again.",
+        runall: "Next: click Refresh Dashboard to view the completed results.",
+        load_files: "Next: choose specific files and click Summarize Selected.",
+      };
+
+      const STEPS = {
+        download: {
+          label: "Download",
+          url: "/api/v1/files/download",
+          method: "POST",
+        },
+        parse: { label: "Parse", url: "/api/v1/parse", method: "POST" },
+        summarize: {
+          label: "Summarize All",
+          url: "/api/v1/summarize?force_refresh=true",
+          method: "POST",
+        },
+      };
+      let driveFiles = [];
+
+      function setAllDisabled(disabled) {
+        [
+          "btn-download",
+          "btn-parse",
+          "btn-load-files",
+          "btn-summarize-selected",
+          "btn-summarize",
+          "btn-run-all",
+          "btn-clear-cache",
+        ].forEach((id) => {
+          document.getElementById(id).disabled = disabled;
+        });
+      }
+
+      function encodeQuery(values) {
+        return values
+          .map((name) => `file_name=${encodeURIComponent(name)}`)
+          .join("&");
+      }
+
+      function selectedFileNames() {
+        return Array.from(document.querySelectorAll(".file-checkbox:checked")).map(
+          (input) => input.value
+        );
+      }
+
+      function toggleSelectAll(checked) {
+        document.querySelectorAll(".file-checkbox").forEach((input) => {
+          input.checked = checked;
+        });
+      }
+
+      function renderFileSelector(files) {
+        const selector = document.getElementById("file-selector");
+        const checkboxes = document.getElementById("file-checkboxes");
+
+        if (!files.length) {
+          selector.classList.add("d-none");
+          checkboxes.innerHTML = "";
+          return;
+        }
+
+        checkboxes.innerHTML = files
+          .map(
+            (file) => `
+          <label class="file-item">
+            <input class="form-check-input file-checkbox" type="checkbox" value="${file.file_name}" checked />
+            <span>${file.file_name}</span>
+          </label>
+        `
+          )
+          .join("");
+        selector.classList.remove("d-none");
+      }
+
+      function showLog() {
+        document.getElementById("pipeline-log").classList.remove("d-none");
+      }
+
+      function refreshDashboardNow() {
+        window.location.reload();
+      }
+
+      function saveOperationStatus(payload) {
+        sessionStorage.setItem(OP_STATUS_KEY, JSON.stringify(payload));
+      }
+
+      function getOperationStatus() {
+        const raw = sessionStorage.getItem(OP_STATUS_KEY);
+        if (!raw) return null;
+        try {
+          return JSON.parse(raw);
+        } catch {
+          return null;
+        }
+      }
+
+      function renderOperationStatus(payload) {
+        const container = document.getElementById("operation-status");
+        const title = document.getElementById("operation-status-title");
+        const message = document.getElementById("operation-status-message");
+        const next = document.getElementById("operation-status-next");
+        const refreshBtn = document.getElementById("operation-refresh-btn");
+
+        if (!payload) {
+          container.classList.add("d-none");
+          return;
+        }
+
+        container.classList.remove(
+          "d-none",
+          "alert-success",
+          "alert-danger",
+          "alert-info"
+        );
+        container.classList.add(payload.success ? "alert-success" : "alert-danger");
+
+        title.textContent = payload.title;
+        message.textContent = payload.message;
+        next.textContent = payload.nextAction;
+
+        if (payload.showRefresh) {
+          refreshBtn.classList.remove("d-none");
+        } else {
+          refreshBtn.classList.add("d-none");
+        }
+      }
+
+      function setOperationStatus({
+        title,
+        message,
+        success,
+        nextAction,
+        showRefresh = false,
+      }) {
+        const payload = {
+          title,
+          message,
+          success,
+          nextAction,
+          showRefresh,
+        };
+        saveOperationStatus(payload);
+        renderOperationStatus(payload);
+      }
+
+      async function loadDriveFiles() {
+        showLog();
+        appendLog('<div class="log-line log-info">▶ Loading files from Drive…</div>');
+        try {
+          const res = await fetch("/api/v1/files");
+          const data = await res.json();
+          if (!res.ok) {
+            appendLog(
+              `<div class="log-line log-error">✗ Failed to load files: ${data.detail || res.statusText}</div>`
+            );
+            setOperationStatus({
+              title: "Load Files failed",
+              message: data.detail || res.statusText,
+              success: false,
+              nextAction: "Fix the issue and try Load Files again.",
+            });
+            return;
+          }
+
+          driveFiles = data.files || [];
+          renderFileSelector(driveFiles);
+          appendLog(
+            `<div class="log-line log-success">✓ Loaded <strong>${driveFiles.length}</strong> files. Choose what to summarize.</div>`
+          );
+          setOperationStatus({
+            title: "Files loaded successfully",
+            message: `Loaded ${driveFiles.length} files from Drive.`,
+            success: true,
+            nextAction: NEXT_STEPS.load_files,
+            showRefresh: false,
+          });
+        } catch (err) {
+          appendLog(
+            `<div class="log-line log-error">✗ Network error: ${err.message}</div>`
+          );
+          setOperationStatus({
+            title: "Load Files failed",
+            message: err.message,
+            success: false,
+            nextAction: "Check connection and try Load Files again.",
+          });
+        }
+      }
+
+      function appendLog(html) {
+        const inner = document.getElementById("pipeline-log-inner");
+        inner.insertAdjacentHTML("beforeend", html);
+        inner.scrollTop = inner.scrollHeight;
+      }
+
+      function clearLog() {
+        document.getElementById("pipeline-log-inner").innerHTML = "";
+      }
+
+      function openSummaryModal(documentHash) {
+        const row = SUMMARY_BY_HASH[documentHash];
+        if (!row) {
+          showLog();
+          appendLog(
+            '<div class="log-line log-error">✗ Summary detail not found for selected row.</div>'
+          );
+          return;
+        }
+
+        document.getElementById("summaryModalTitle").textContent = row.file_name;
+        document.getElementById("summaryModalBody").textContent = row.summary || "";
+
+        const meta = `
+          <div class="col-md-6"><strong>File Type:</strong> ${row.file_type}</div>
+          <div class="col-md-6"><strong>Chunk Count:</strong> ${row.chunk_count}</div>
+          <div class="col-md-6"><strong>Processing Time:</strong> ${row.processing_time_seconds}s</div>
+          <div class="col-md-6"><strong>Created Date:</strong> ${row.created_at}</div>
+          <div class="col-md-6"><strong>Model Used:</strong> ${row.model_used}</div>
+          <div class="col-md-6"><strong>Summary Type:</strong> ${row.summary_type}</div>
+          <div class="col-12"><strong>Hash:</strong> <span class="text-break">${row.document_hash}</span></div>
+        `;
+        document.getElementById("summaryModalMeta").innerHTML = meta;
+
+        const modalElement = document.getElementById("summaryDetailModal");
+        const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+        modal.show();
+      }
+
+      async function runStep(step) {
+        const cfg = STEPS[step];
+        showLog();
+        setAllDisabled(true);
+        appendLog(
+          `<div class="log-line log-info">▶ Running <strong>${cfg.label}</strong>…</div>`
+        );
+        try {
+          const res = await fetch(cfg.url, { method: cfg.method });
+          const data = await res.json();
+          if (!res.ok) {
+            appendLog(
+              `<div class="log-line log-error">✗ ${cfg.label} failed: ${data.detail || res.statusText}</div>`
+            );
+            setOperationStatus({
+              title: `${cfg.label} failed`,
+              message: data.detail || res.statusText,
+              success: false,
+              nextAction: "Resolve the error and retry this step.",
+            });
+          } else {
+            const summaryHtml = Object.entries(data)
+              .filter(([k]) => k !== "documents")
+              .map(([k, v]) => `${k}: <strong>${v}</strong>`)
+              .join(" &nbsp;·&nbsp; ");
+            const summaryText = Object.entries(data)
+              .filter(([k]) => k !== "documents")
+              .map(([k, v]) => `${k}: ${v}`)
+              .join(" · ");
+            appendLog(
+              `<div class="log-line log-success">✓ ${cfg.label} done &nbsp;— ${summaryHtml}</div>`
+            );
+
+            const showRefresh = step === "summarize";
+            setOperationStatus({
+              title: `${cfg.label} completed`,
+              message: summaryText,
+              success: true,
+              nextAction: NEXT_STEPS[step],
+              showRefresh,
+            });
+          }
+        } catch (err) {
+          appendLog(
+            `<div class="log-line log-error">✗ Network error: ${err.message}</div>`
+          );
+          setOperationStatus({
+            title: `${cfg.label} failed`,
+            message: err.message,
+            success: false,
+            nextAction: "Check network and retry this step.",
+          });
+        } finally {
+          setAllDisabled(false);
+        }
+      }
+
+      async function runSummarizeAll() {
+        await runStep("summarize");
+      }
+
+      async function runSummarizeSelected() {
+        const selected = selectedFileNames();
+        if (!selected.length) {
+          showLog();
+          appendLog(
+            '<div class="log-line log-error">✗ Select at least one file first (use Load Files).</div>'
+          );
+          return;
+        }
+
+        showLog();
+        setAllDisabled(true);
+        appendLog(
+          `<div class="log-line log-info">▶ Summarizing <strong>${selected.length}</strong> selected files…</div>`
+        );
+
+        const query = encodeQuery(selected);
+        const url = `/api/v1/summarize?force_refresh=true&${query}`;
+
+        try {
+          const res = await fetch(url, { method: "POST" });
+          const data = await res.json();
+          if (!res.ok) {
+            appendLog(
+              `<div class="log-line log-error">✗ Summarize selected failed: ${data.detail || res.statusText}</div>`
+            );
+            setOperationStatus({
+              title: "Summarize Selected failed",
+              message: data.detail || res.statusText,
+              success: false,
+              nextAction: "Adjust file selection and retry.",
+            });
+          } else {
+            appendLog(
+              `<div class="log-line log-success">✓ Summarized: <strong>${data.summarized}</strong> · Failed: <strong>${data.failed}</strong></div>`
+            );
+            setOperationStatus({
+              title: "Summarize Selected completed",
+              message: `Summarized: ${data.summarized} · Failed: ${data.failed}`,
+              success: true,
+              nextAction: NEXT_STEPS.summarize_selected,
+              showRefresh: true,
+            });
+          }
+        } catch (err) {
+          appendLog(
+            `<div class="log-line log-error">✗ Network error: ${err.message}</div>`
+          );
+          setOperationStatus({
+            title: "Summarize Selected failed",
+            message: err.message,
+            success: false,
+            nextAction: "Check network and retry summarization.",
+          });
+        } finally {
+          setAllDisabled(false);
+        }
+      }
+
+      async function clearResults() {
+        showLog();
+        setAllDisabled(true);
+        appendLog(
+          '<div class="log-line log-info">▶ Clearing previous summary results…</div>'
+        );
+
+        try {
+          const res = await fetch("/api/v1/summaries/cache", { method: "DELETE" });
+          const data = await res.json();
+          if (!res.ok) {
+            appendLog(
+              `<div class="log-line log-error">✗ Clear failed: ${data.detail || res.statusText}</div>`
+            );
+            setOperationStatus({
+              title: "Clear Previous Results failed",
+              message: data.detail || res.statusText,
+              success: false,
+              nextAction: "Retry clear action in a moment.",
+            });
+          } else {
+            appendLog(
+              `<div class="log-line log-success">✓ Cleared summaries: <strong>${data.removed_summaries}</strong> · report files: <strong>${data.removed_report_exports}</strong> · report history: <strong>${data.removed_report_metadata}</strong></div>`
+            );
+            setOperationStatus({
+              title: "Previous results cleared",
+              message: `Summaries: ${data.removed_summaries} · Report files: ${data.removed_report_exports} · Report history: ${data.removed_report_metadata}`,
+              success: true,
+              nextAction: NEXT_STEPS.clear,
+              showRefresh: true,
+            });
+          }
+        } catch (err) {
+          appendLog(
+            `<div class="log-line log-error">✗ Network error: ${err.message}</div>`
+          );
+          setOperationStatus({
+            title: "Clear Previous Results failed",
+            message: err.message,
+            success: false,
+            nextAction: "Check network and retry clear action.",
+          });
+        } finally {
+          setAllDisabled(false);
+        }
+      }
+
+      async function runAll() {
+        showLog();
+        clearLog();
+        setAllDisabled(true);
+        appendLog('<div class="log-line log-info">▶ Starting full pipeline…</div>');
+        for (const step of ["download", "parse", "summarize"]) {
+          const cfg = STEPS[step];
+          appendLog(
+            `<div class="log-line log-info">&nbsp;&nbsp;→ ${cfg.label}…</div>`
+          );
+          try {
+            const res = await fetch(cfg.url, { method: cfg.method });
+            const data = await res.json();
+            if (!res.ok) {
+              appendLog(
+                `<div class="log-line log-error">&nbsp;&nbsp;✗ ${cfg.label} failed: ${data.detail || res.statusText}</div>`
+              );
+              appendLog('<div class="log-line log-error">Pipeline stopped.</div>');
+              setOperationStatus({
+                title: `Run All stopped at ${cfg.label}`,
+                message: data.detail || res.statusText,
+                success: false,
+                nextAction:
+                  "Resolve the error and run all again or continue step-by-step.",
+              });
+              setAllDisabled(false);
+              return;
+            }
+            const summary = Object.entries(data)
+              .filter(([k]) => k !== "documents")
+              .map(([k, v]) => `${k}: <strong>${v}</strong>`)
+              .join(" &nbsp;·&nbsp; ");
+            appendLog(
+              `<div class="log-line log-success">&nbsp;&nbsp;✓ ${cfg.label} — ${summary}</div>`
+            );
+          } catch (err) {
+            appendLog(
+              `<div class="log-line log-error">&nbsp;&nbsp;✗ Network error: ${err.message}</div>`
+            );
+            setOperationStatus({
+              title: `Run All failed at ${cfg.label}`,
+              message: err.message,
+              success: false,
+              nextAction: "Check network and rerun the pipeline.",
+            });
+            setAllDisabled(false);
+            return;
+          }
+        }
+        appendLog('<div class="log-line log-success">✅ All done!</div>');
+        setOperationStatus({
+          title: "Run All completed",
+          message: "Download, parse, and summarize steps finished successfully.",
+          success: true,
+          nextAction: NEXT_STEPS.runall,
+          showRefresh: true,
+        });
+        setAllDisabled(false);
+      }
+
+      renderOperationStatus(getOperationStatus());
+    </script>
+  </body>
+</html>

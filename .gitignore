@@ -129,7 +129,10 @@ celerybeat.pid
 
 # Environments
 .env
+service-account.json
 .venv
+.DS_Store
+AI Document Intelligence Platform.pdf
 env/
 venv/
 ENV/
@@ -179,3 +182,16 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+# Phase 1 required ignores
+pycache/
+*.pyc
+.env
+logs/*.log
+cache/*.json
+reports/exports/*
+!reports/exports/.gitkeep
+reports/metadata/*.json
+.venv/
+.vscode/
+.idea/

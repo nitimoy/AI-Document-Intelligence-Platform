@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Document Intelligence Platform</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+      crossorigin="anonymous"
+    />
+    <style>
+      body {
+        min-height: 100vh;
+        background: linear-gradient(145deg, #f8fafc 0%, #e2e8f0 100%);
+      }
+
+      .phase-card {
+        max-width: 760px;
+        border: 0;
+        border-radius: 1rem;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+      }
+
+      .feature-pill {
+        background-color: #0d6efd;
+        color: #fff;
+        border-radius: 999px;
+        padding: 0.4rem 0.85rem;
+        font-size: 0.9rem;
+      }
+    </style>
+  </head>
+  <body class="d-flex align-items-center justify-content-center p-3">
+    <main class="card phase-card w-100">
+      <section class="card-body p-5 text-center">
+        <h1 class="display-6 fw-bold mb-3">{{ application_name }}</h1>
+        <p class="lead text-secondary mb-4">Phase 1 Foundation Successfully Running</p>
+
+        <div class="d-flex flex-wrap justify-content-center gap-2 mb-4">
+          <span class="feature-pill">Google Drive Integration</span>
+          <span class="feature-pill">Document Processing</span>
+          <span class="feature-pill">GPT-4o Summarization</span>
+          <span class="feature-pill">CSV/PDF Reporting</span>
+        </div>
+
+        <p class="text-muted mb-0">
+          Production-ready FastAPI foundation prepared for future implementation phases.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>
